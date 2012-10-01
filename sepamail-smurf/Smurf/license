@@ -1,0 +1,23 @@
+Le composant SMURF est mise à disposition selon les termes de la 
+licence GNU General Public License, version 3
+http://www.gnu.org/copyleft/gpl.html
+
+L'idée originale de ce composant est de Cyril Vignet, BPCE.
+Le logotype SMURF a été réalisé par Gaelle Yollant, BPCE.
+Les spécifications et la maitrise d'ouvrage ont été réalisées par Manfred Olm, deciBI.
+La réalisation et le développement ont été réalisés par Bishan Kumar Madhoo, ID Soft.
+
+Des composants open source ont été utilisés :
+
+1.  Apache Commons 3.1, Apache License, Version 2.0
+2.  MySQL Connector/J 5.0.8, GNU General Public License, version 2
+3.	SQLite Connector/J 3.7.2, Apache License,  Version 2.0
+4.  jOpenDocument 1.3b1, GNU General Public License, version 3
+5.  JavaMail 1.4.5, CDDL-1.0, BSD, GPL-2.0, GNU-Classpath
+6.  ICEpdf 4.3.2, Apache License, Version 2.0
+7.  iText 5.2.2, GNU Affero General Public License, version 3
+8.  Launch4j, BSD license & MIT license
+
+Ces projets utilisent d'autres sous-projets, non listés ici, 
+mais qui sont également vivement remerciés par les auteurs pour le temps gagné
+et la connaissance partagée.
