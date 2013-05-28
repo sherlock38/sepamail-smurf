@@ -53,53 +53,61 @@ public class NavigationController implements ActionListener, ItemListener {
     public void actionPerformed(ActionEvent e) {
 
         // Check the action command of the button that triggered the action
-        if (e.getActionCommand().equals("RUBIS")) {
+        switch (e.getActionCommand()) {
 
-            // Check if we are not already showing the RUBIS panel
-            if (!this.currentSelectedCommand.equals("RUBIS")) {
-                
-                // Show the RUBIS pane
-                this.mainWindowController.displayPanel(MainWindowController.RUBISPANEL);
+            case "RUBIS":
 
-                // Currently selected toggle button action command
-                this.currentSelectedCommand = this.view.rubisButton.getActionCommand();
+                // Check if we are not already showing the RUBIS panel
+                if (!this.currentSelectedCommand.equals("RUBIS")) {
 
-                // Unselect the help and configurations buttons
-                this.view.helpButton.setSelected(false);
-                this.view.parameterButton.setSelected(false);
-            }
+                    // Show the RUBIS pane
+                    this.mainWindowController.displayPanel(MainWindowController.RUBISPANEL);
 
-        } else if (e.getActionCommand().equals("CONFIG")) {
+                    // Currently selected toggle button action command
+                    this.currentSelectedCommand = this.view.rubisButton.getActionCommand();
 
-            // Check if we are not already showing the configurations panel
-            if (!this.currentSelectedCommand.equals("CONFIG")) {
+                    // Unselect the help and configurations buttons
+                    this.view.helpButton.setSelected(false);
+                    this.view.parameterButton.setSelected(false);
+                }
 
-                // Show the configuration panel
-                this.mainWindowController.displayPanel(MainWindowController.CONFIGPANEL);
+                break;
 
-                // Currently selected toggle button action command
-                this.currentSelectedCommand = this.view.parameterButton.getActionCommand();
+            case "CONFIG":
 
-                // Unselect the help and RUBIS buttons
-                this.view.helpButton.setSelected(false);
-                this.view.rubisButton.setSelected(false);
-            }
+                // Check if we are not already showing the configurations panel
+                if (!this.currentSelectedCommand.equals("CONFIG")) {
 
-        } else {
+                    // Show the configuration panel
+                    this.mainWindowController.displayPanel(MainWindowController.CONFIGPANEL);
 
-            // Check if we are not already displaying the help panel
-            if (!this.currentSelectedCommand.equals("HELP")) {
+                    // Currently selected toggle button action command
+                    this.currentSelectedCommand = this.view.parameterButton.getActionCommand();
 
-                // Show the help panel
-                this.mainWindowController.displayPanel(MainWindowController.HELPPANEL);
+                    // Unselect the help and RUBIS buttons
+                    this.view.helpButton.setSelected(false);
+                    this.view.rubisButton.setSelected(false);
+                }
 
-                // Currently selected toggle button action command
-                this.currentSelectedCommand = this.view.helpButton.getActionCommand();
+                break;
 
-                // Unselect the configurations and RUBIS buttons
-                this.view.parameterButton.setSelected(false);
-                this.view.rubisButton.setSelected(false);
-            }
+            case "HELP":
+
+                // Check if we are not already displaying the help panel
+                if (!this.currentSelectedCommand.equals("HELP")) {
+
+                    // Show the help panel
+                    this.mainWindowController.displayPanel(MainWindowController.HELPPANEL);
+
+                    // Currently selected toggle button action command
+                    this.currentSelectedCommand = this.view.helpButton.getActionCommand();
+
+                    // Unselect the configurations and RUBIS buttons
+                    this.view.parameterButton.setSelected(false);
+                    this.view.rubisButton.setSelected(false);
+                }
+
+                break;
         }
     }
 

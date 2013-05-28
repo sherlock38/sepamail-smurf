@@ -34,10 +34,10 @@ public class Utilities {
         }
 
         // Absolute current working directory
-        return new File(path).getParentFile().getPath() + System.getProperty("file.separator") + ".";
+        //return new File(path).getParentFile().getPath() + System.getProperty("file.separator") + ".";
 
         // Absolute current working directory - added for debugging
-        //return new File(path).getParentFile().getPath() + System.getProperty("file.separator") + "./..";
+        return new File(path).getParentFile().getPath() + System.getProperty("file.separator") + "./..";
     }
 
     /**
@@ -92,20 +92,16 @@ public class Utilities {
             char ch = str.charAt(i);
             
             if ((ch >= 0x0020) && (ch <= 0x007e)) {
-                
                 ostr.append(ch);
-                
             } else {
-                
+
                 ostr.append("\\u");
                 String hex = Integer.toHexString(str.charAt(i) & 0xFFFF);
-                
+
                 for(int j = 0; j < 4 - hex.length(); j++) {
-                    
                     ostr.append("0");
-                    
                 }
-                
+
                 ostr.append(hex.toLowerCase());
             }
         }
@@ -129,33 +125,106 @@ public class Utilities {
         // Archive file output stream
         FileOutputStream archiveFile = new FileOutputStream(archive);
 
-        // ZIP output stream
-        ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(archiveFile));
+        // Add files to ZIP archive
+        try (ZipOutputStream out = new ZipOutputStream(new BufferedOutputStream(archiveFile))) {
 
-        // List of files that have to be added to the archive
-        String files[] = folder.list();
+            // List of files to add to the archive
+            String files[] = folder.list();
 
-        // Add the files to the archive
-        for (int i = 0; i < files.length; i++) {
+            // Add the files to the archive
+            for (int i = 0; i < files.length; i++) {
 
-            // Current file input stream
-            FileInputStream fi = new FileInputStream(folder.getAbsolutePath() + System.getProperty("file.separator")
-                    + files[i]);
+                // Current file input stream
+                FileInputStream fi = new FileInputStream(folder.getAbsolutePath() + System.getProperty("file.separator")
+                        + files[i]);
 
-            origin = new BufferedInputStream(fi, 2048);
-            ZipEntry entry = new ZipEntry(files[i]);
-            out.putNextEntry(entry);
+                origin = new BufferedInputStream(fi, 2048);
+                ZipEntry entry = new ZipEntry(files[i]);
+                out.putNextEntry(entry);
 
-            int count;
+                int count;
 
-            while((count = origin.read(data, 0, 2048)) != -1) {
-               out.write(data, 0, count);
+                while((count = origin.read(data, 0, 2048)) != -1) {
+                   out.write(data, 0, count);
+                }
+
+                origin.close();
+
+             }
+        }
+    }
+
+    /**
+     * Delete all the file in the specified folder
+     * 
+     * @param folderPath Folder from which files will be deleted
+     */
+    public static void deleteFolderFiles(String folderPath) {
+
+        // Output folder
+        File outputFolder = new File(folderPath);
+
+        // Check if the output folder exists
+        if (outputFolder.exists()) {
+
+            // Get the list of files in the output folder
+            File[] outputContents = outputFolder.listFiles();
+
+            // Scan the list of files and delete the files
+            for (int i = 0; i < outputContents.length; i++) {
+
+                // Check if the current file is a file
+                if (outputContents[i].isFile()) {
+
+                    // Delete the file
+                    outputContents[i].delete();
+                }
             }
+        }
+    }
 
-            origin.close();
+    /**
+     * Get the name of the file from a full path and filename string
+     * 
+     * @param fullPathAndFilename Full path and filename string
+     * @return Name of file
+     */
+    public static String getFilename(String fullPathAndFilename) {
 
-         }
+        // Get the parts of the full path and filename string
+        String[] parts = fullPathAndFilename.split(System.getProperty("file.separator"));
 
-         out.close();
+        // Check if parts where found
+        if (parts.length > 0) {
+            return parts[parts.length - 1];
+        } else {
+            return "";
+        }
+    }
+
+    /**
+     * Move a given file defined by its path and name to a target folder
+     * 
+     * @param filename Path and name of file that needs to be moved
+     * @param destinationFolder Path of destination folder
+     */
+    public static void moveFile(String filename, String destinationFolder) {
+
+        // File that needs to be moved
+        File targetFile = new File(filename);
+
+        // Destination folder
+        File destination = new File(destinationFolder);
+
+        // Check if the destination folder exists
+        if (destination.exists()) {
+
+            // Check if the destination is a folder
+            if (destination.isDirectory()) {
+
+                // Move the file to its destination folder
+                targetFile.renameTo(new File(destination, targetFile.getName()));
+            }
+        }
     }
 }

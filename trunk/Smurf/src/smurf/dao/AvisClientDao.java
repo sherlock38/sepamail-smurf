@@ -7,12 +7,12 @@ import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
 import smurf.Smurf;
-import smurf.model.AvisClient;
-import smurf.model.Configuration;
 import smurf.exceptions.ConfigurationFormatException;
 import smurf.exceptions.DatesNotSpecifiedException;
 import smurf.exceptions.EndDateNotSpecifiedException;
 import smurf.exceptions.StartDateNotSpecifiedException;
+import smurf.model.AvisClient;
+import smurf.model.Configuration;
 
 /**
  * The AvisClientDao class is used to query the database and fetch the request for payment records matching the given
@@ -91,7 +91,7 @@ public class AvisClientDao {
             DatesNotSpecifiedException, StartDateNotSpecifiedException, EndDateNotSpecifiedException {
 
         // New list of request for payments
-        ArrayList<AvisClient> avisClients = new ArrayList<AvisClient>();
+        ArrayList<AvisClient> avisClients = new ArrayList<>();
 
         // Collection of Configurations memory objects
         ArrayList<Configuration> configurations = ConfigurationDao.getConfigurationDao().getConfigurations();

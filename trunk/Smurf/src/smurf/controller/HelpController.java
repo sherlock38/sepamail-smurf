@@ -40,15 +40,11 @@ public class HelpController {
             // Read help file
             this.loadHelp();
 
-        } catch (BadLocationException ex) {
+        } catch (BadLocationException | IOException ex) {
 
             // Write error message to log file
             Smurf.logController.log(Level.WARNING, HelpController.class.getSimpleName(), ex.getLocalizedMessage());
 
-        } catch (IOException ex){
-
-            // Write error message to log file
-            Smurf.logController.log(Level.WARNING, HelpController.class.getSimpleName(), ex.getLocalizedMessage());
         }
     }
 

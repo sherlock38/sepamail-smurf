@@ -30,7 +30,7 @@ public class AvisClientTableModel extends AbstractTableModel {
 
         // Define class attributes
         this.avisClients = avisClients;
-        this.gridConfigurations = new ArrayList<GridConfiguration>();
+        this.gridConfigurations = new ArrayList<>();
 
         // Get grid configurations from the configuration file
         try {
@@ -46,7 +46,7 @@ public class AvisClientTableModel extends AbstractTableModel {
 
         // Set the default column names
         this.columnNames[0] = "";
-        this.columnNames[this.columnNames.length - 1] = "PDF";
+        this.columnNames[this.columnNames.length - 1] = "Fichier généré";
 
         // Set the dynamic column names
         for (int i = 0; i < this.gridConfigurations.size(); i++) {
@@ -111,9 +111,9 @@ public class AvisClientTableModel extends AbstractTableModel {
             } else if (i1 == this.columnNames.length - 1) {
 
                 // Generated PDF document file name
-                if (avisClient.getPdfFile() != null) {
-                    if (avisClient.getPdfFile().length() > 0) {
-                        File dummyFile = new File(avisClient.getPdfFile());
+                if (avisClient.getSmurfOutput() != null) {
+                    if (avisClient.getSmurfOutput().getBaseFilename().length() > 0) {
+                        File dummyFile = new File(avisClient.getSmurfOutput().getBaseFilename());
                         data = dummyFile.getName();
                     } else {
                         data = "";
