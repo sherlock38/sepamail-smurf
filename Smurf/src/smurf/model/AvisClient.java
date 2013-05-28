@@ -23,7 +23,7 @@ public class AvisClient {
     private HashMap<String, Object> attributes;
     private NumberFormat numberFormatter;
     private SimpleDateFormat dateFormat;
-    private String pdfFile;
+    private SmurfOutput smurfOutput;
 
     /**
      * Get the value of an attribute
@@ -143,21 +143,21 @@ public class AvisClient {
     }
 
     /**
-     * Get the path and filename of the generated PDF file
+     * Get the SMURF output object
      * 
-     * @return Path and filename of the generated PDF file
+     * @return SMURF output object
      */
-    public String getPdfFile() {
-        return this.pdfFile;
+    public SmurfOutput getSmurfOutput() {
+        return this.smurfOutput;
     }
 
     /**
-     * Set the path and filename of the generated PDF file
+     * Set SMURF output object
      * 
-     * @param pdfFile Path and filename of the generated PDF file
+     * @param smurfOutput SMURF output class instance
      */
-    public void setPdfFile(String pdfFile) {
-        this.pdfFile = pdfFile;
+    public void setSmurfOutput(SmurfOutput smurfOutput) {
+        this.smurfOutput = smurfOutput;
     }
 
     /**
@@ -168,11 +168,11 @@ public class AvisClient {
     public AvisClient(BigInteger idAvis) {
 
         // Initialise the attributes of the class
-        this.attributes = new HashMap<String, Object>();
+        this.attributes = new HashMap<>();
         this.dateFormat = new SimpleDateFormat("dd-MM-yyyy");
         this.generateDocument = true;
         this.idAvis = idAvis;
         this.numberFormatter = NumberFormat.getCurrencyInstance(Locale.FRANCE);
-        this.pdfFile = null;
+        this.smurfOutput = null;
     }
 }

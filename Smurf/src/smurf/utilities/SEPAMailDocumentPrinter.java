@@ -30,7 +30,7 @@ import smurf.model.Configuration;
  * SEPAMailDocumentPrinter class is used to create the various documents required for a request for payment document
  * 
  * @author Bishan Kumar Madhoo <bishan.madhoo@idsoft.mu>
- * @version 0.6
+ * @version 1.0
  */
 public class SEPAMailDocumentPrinter {
 

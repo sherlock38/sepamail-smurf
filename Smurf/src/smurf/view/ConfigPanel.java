@@ -23,6 +23,7 @@ public class ConfigPanel extends javax.swing.JPanel {
     // <editor-fold defaultstate="collapsed" desc="Generated Code">//GEN-BEGIN:initComponents
     private void initComponents() {
 
+        jButton1 = new javax.swing.JButton();
         titlePanel = new javax.swing.JPanel();
         titleLabel = new javax.swing.JLabel();
         configScrollPane = new javax.swing.JScrollPane();
@@ -30,6 +31,10 @@ public class ConfigPanel extends javax.swing.JPanel {
         buttonContainerPanel = new javax.swing.JPanel();
         advancedConfigurationsButton = new javax.swing.JButton();
         saveButton = new javax.swing.JButton();
+        centerButtonContainerPanel = new javax.swing.JPanel();
+        deleteGeneratedFilesButton = new javax.swing.JButton();
+
+        jButton1.setText("jButton1");
 
         setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
         setLayout(new java.awt.BorderLayout());
@@ -58,7 +63,6 @@ public class ConfigPanel extends javax.swing.JPanel {
         buttonContainerPanel.setMinimumSize(new java.awt.Dimension(10, 40));
         buttonContainerPanel.setPreferredSize(new java.awt.Dimension(40, 40));
         buttonContainerPanel.setRequestFocusEnabled(false);
-        buttonContainerPanel.setSize(new java.awt.Dimension(40, 40));
         buttonContainerPanel.setLayout(new java.awt.BorderLayout());
 
         advancedConfigurationsButton.setText("Paramétrage avancé");
@@ -69,14 +73,26 @@ public class ConfigPanel extends javax.swing.JPanel {
         saveButton.setActionCommand("SAVE_CONFIG");
         buttonContainerPanel.add(saveButton, java.awt.BorderLayout.EAST);
 
+        centerButtonContainerPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        centerButtonContainerPanel.setLayout(new java.awt.FlowLayout(java.awt.FlowLayout.CENTER, 0, 0));
+
+        deleteGeneratedFilesButton.setText("Nettoyer les fichiers générés");
+        deleteGeneratedFilesButton.setActionCommand("DELETE_GENERATED_FILES");
+        centerButtonContainerPanel.add(deleteGeneratedFilesButton);
+
+        buttonContainerPanel.add(centerButtonContainerPanel, java.awt.BorderLayout.CENTER);
+
         add(buttonContainerPanel, java.awt.BorderLayout.SOUTH);
     }// </editor-fold>//GEN-END:initComponents
 
     // Variables declaration - do not modify//GEN-BEGIN:variables
     public javax.swing.JButton advancedConfigurationsButton;
     private javax.swing.JPanel buttonContainerPanel;
+    private javax.swing.JPanel centerButtonContainerPanel;
     public javax.swing.JScrollPane configScrollPane;
     public javax.swing.JPanel configsContainerPanel;
+    public javax.swing.JButton deleteGeneratedFilesButton;
+    private javax.swing.JButton jButton1;
     public javax.swing.JButton saveButton;
     private javax.swing.JLabel titleLabel;
     private javax.swing.JPanel titlePanel;

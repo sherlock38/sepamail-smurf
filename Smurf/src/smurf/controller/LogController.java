@@ -43,15 +43,11 @@ public class LogController {
             logger.setLevel(Level.ALL);
             logger.addHandler(logFileHandler);
 
-        } catch (IOException ex) {
+        } catch (IOException | SecurityException ex) {
 
             // Show error message on screen since we do not have loggin mechanism in place yet
             System.out.println(ex.getMessage());
 
-        } catch (SecurityException ex) {
-
-            // Show error message on screen since we do not have loggin mechanism in place yet
-            System.out.println(ex.getMessage());
         }
     }
 

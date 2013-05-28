@@ -4,12 +4,15 @@ import java.awt.Dimension;
 import java.awt.event.*;
 import java.io.File;
 import java.io.IOException;
+import java.security.GeneralSecurityException;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 import java.util.logging.Level;
+import javax.mail.MessagingException;
 import javax.swing.*;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
@@ -17,14 +20,20 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableColumn;
 import org.apache.commons.lang3.StringUtils;
+import org.smoc.Smoc;
 import smurf.Smurf;
 import smurf.dao.AvisClientDao;
 import smurf.dao.ConfigurationDao;
-import smurf.model.AvisClient;
-import smurf.model.AvisClientTableModel;
-import smurf.model.GridConfiguration;
+import smurf.exceptions.ConfigurationFormatException;
+import smurf.exceptions.MailParameterNotDefinedException;
+import smurf.exceptions.SmicConfigurationFilenameNotDefinedException;
+import smurf.model.*;
+import smurf.utilities.SEPAMailDocumentArchiver;
 import smurf.utilities.SEPAMailDocumentMailer;
 import smurf.utilities.SEPAMailDocumentPrinter;
+import smurf.utilities.SEPAMailEbicsAdapter;
+import smurf.utilities.SEPAMailVoucherPrinter;
+import smurf.utilities.Utilities;
 import smurf.view.PDFViewer;
 import smurf.view.RubisPanel;
 import smurf.view.TaskProgressDialog;
@@ -68,10 +77,10 @@ public class RubisController extends WindowAdapter implements ActionListener, It
      */
     public RubisController() {
 
-        this.avisClients = new ArrayList<AvisClient>();
+        this.avisClients = new ArrayList<>();
         this.avisClientTableModel = new AvisClientTableModel(this.avisClients);
         this.curPageNo = 0;
-        this.gridConfigurations = new ArrayList<GridConfiguration>();
+        this.gridConfigurations = new ArrayList<>();
         this.initialised = false;
         this.maxRows = 0;
         this.noDocuments = 0;
@@ -79,7 +88,7 @@ public class RubisController extends WindowAdapter implements ActionListener, It
         this.noDocumentsToSend = 0;
         this.noPages = 0;
         this.noSelectedDocuments = 0;
-        this.pdfViewers = new HashMap<String, PDFViewer>();
+        this.pdfViewers = new HashMap<>();
         this.taskProgressDialog = new TaskProgressDialog(MainWindowController.getView(), true);
         this.view = new RubisPanel();
 
@@ -130,6 +139,30 @@ public class RubisController extends WindowAdapter implements ActionListener, It
         }
     }
 
+    /**
+     * Clear the SMURF output objects for request for payment objects
+     */
+    public void clearSmurfOuputObjects() {
+
+        // Scan the list of request for payment objects
+        for (int i = 0; i < this.avisClients.size(); i++) {
+
+            // Current request for payment object
+            AvisClient currentAvis = this.avisClients.get(i);
+
+            // Clear the SMURF output object
+            currentAvis.setSmurfOutput(null);
+
+            // Replace the request for payment object in the 
+            this.avisClients.set(i, currentAvis);
+        }
+
+        // Indicate that documents have not been generated
+        this.view.secondStepToggleButton.setSelected(false);
+        this.view.thirdStepToggleButton.setSelected(false);
+        this.view.thirdStepToggleButton.setEnabled(false);
+    }
+
     // <editor-fold defaultstate="collapsed" desc="Event handlers">
     /**
      * Handle action events from the Rubis panel
@@ -140,90 +173,105 @@ public class RubisController extends WindowAdapter implements ActionListener, It
     public void actionPerformed(ActionEvent e) {
 
         // Check the action command of the component that triggered the event
-        if (e.getActionCommand().equals("RECUPERATION")) {
+        switch (e.getActionCommand()) {
 
-            // Fetch requests for payment
-            this.fetchRequestsForPayment();
+            case "RECUPERATION":
+                // Fetch requests for payment
+                this.fetchRequestsForPayment();
+                break;
 
-        } else if (e.getActionCommand().equals("GENERATION")) {
+            case "GENERATION":
 
-            // Generate documents for selected requests for payments
-            this.generateDocuments();
-            
-        } else if (e.getActionCommand().equals("CANCEL_FETCHING")) {
-            
-            // Cancel the task worker thread
-            if (this.taskWorker.cancel(true)) {
+                // Clear any previously generated SMURF output objects
+                this.clearSmurfOuputObjects();
 
-                // Hide the task progress dialog box
-                this.taskProgressDialog.setVisible(false);
-            }
+                // Generate documents for selected requests for payments
+                this.generateDocuments();
 
-        } else if (e.getActionCommand().equals("FIRST_PAGE")) {
+                break;
 
-            // Show the first page
-            this.curPageNo = 0;
-            this.showPage();
+            case "CANCEL_FETCHING":
+                
+                // Cancel the task worker thread
+                if (this.taskWorker.cancel(true)) {
 
-        } else if (e.getActionCommand().equals("PREVIOUS_PAGE")) {
+                    // Hide the task progress dialog box
+                    this.taskProgressDialog.setVisible(false);
+                }
+                break;
 
-            // Show the previous page
-            this.curPageNo--;
+            case "FIRST_PAGE":
 
-            // Check if we are already at the first page
-            if (this.curPageNo < 0) {
+                // Show the first page
                 this.curPageNo = 0;
-            }
+                this.showPage();
+                break;
 
-            this.showPage();
+            case "PREVIOUS_PAGE":
 
-        } else if (e.getActionCommand().equals("NEXT_PAGE")) {
+                // Show the previous page
+                this.curPageNo--;
 
-            // Show the next page
-            this.curPageNo++;
+                // Check if we are already at the first page
+                if (this.curPageNo < 0) {
+                    this.curPageNo = 0;
+                }
 
-            // Check if we are already at the last page
-            if (this.curPageNo > (this.noPages - 1)) {
+                this.showPage();
+                break;
+
+            case "NEXT_PAGE":
+
+                // Show the next page
+                this.curPageNo++;
+
+                // Check if we are already at the last page
+                if (this.curPageNo > (this.noPages - 1)) {
+                    this.curPageNo = this.noPages - 1;
+                }
+
+                this.showPage();
+                break;
+
+            case "LAST_PAGE":
+
+                // Show the last page
                 this.curPageNo = this.noPages - 1;
-            }
+                this.showPage();
+                break;
 
-            this.showPage();
+            case "PAGE_CHANGE":
 
-        } else if (e.getActionCommand().equals("LAST_PAGE")) {
+                // Show the appropriate page
+                this.curPageNo = this.view.pagesComboBox.getSelectedIndex();
+                this.showPage();
+                break;
 
-            // Show the last page
-            this.curPageNo = this.noPages - 1;
-            this.showPage();
+            case "CANCEL_GENERATION":
 
-        } else if (e.getActionCommand().equals("PAGE_CHANGE")) {
+                // Cancel the task worker thread
+                if (this.taskWorker.cancel(true)) {
 
-            // Show the appropriate page
-            this.curPageNo = this.view.pagesComboBox.getSelectedIndex();
-            this.showPage();
+                    // Hide the task progress dialog box
+                    this.taskProgressDialog.setVisible(false);
+                }
+                break;
 
-        } else if (e.getActionCommand().equals("CANCEL_GENERATION")) {
+            case "ENVOI":
 
-            // Cancel the task worker thread
-            if (this.taskWorker.cancel(true)) {
+                // Send generated documents
+                this.sendDocuments();
+                break;
 
-                // Hide the task progress dialog box
-                this.taskProgressDialog.setVisible(false);
-            }
+            case "CANCEL_SENDING":
 
-        } else if (e.getActionCommand().equals("ENVOI")) {
+                // Cancel the task worker thread
+                if (this.taskWorker.cancel(true)) {
 
-            // Send generated documents
-            this.sendDocuments();
-
-        } else if (e.getActionCommand().equals("CANCEL_SENDING")) {
-
-            // Cancel the task worker thread
-            if (this.taskWorker.cancel(true)) {
-
-                // Hide the task progress dialog box
-                this.taskProgressDialog.setVisible(false);
-            }
-
+                    // Hide the task progress dialog box
+                    this.taskProgressDialog.setVisible(false);
+                }
+                break;
         }
     }
 
@@ -239,23 +287,27 @@ public class RubisController extends WindowAdapter implements ActionListener, It
         JToggleButton target = (JToggleButton) ie.getItem();
 
         // Check if we are changing the state of the currently selected toggle button
-        if (target.getActionCommand().equals("RECUPERATION")) {
+        switch (target.getActionCommand()) {
 
-            // Check if requests for payment have been retrieved
-            if (this.avisClients.size() > 0) {
-                target.setSelected(true);
-            } else {
-                target.setSelected(false);
-            }
+            case "RECUPERATION":
 
-        } else if (target.getActionCommand().equals("GENERATION")) {
+                // Check if requests for payment have been retrieved
+                if (this.avisClients.size() > 0) {
+                    target.setSelected(true);
+                } else {
+                    target.setSelected(false);
+                }
+                break;
 
-            // Check if all documents have been generated
-            if (this.noDocuments == this.noSelectedDocuments) {
-                target.setSelected(true);
-            } else {
-                target.setSelected(false);
-            }
+            case "GENERATION":
+
+                // Check if all documents have been generated
+                if (this.noDocuments == this.noSelectedDocuments) {
+                    target.setSelected(true);
+                } else {
+                    target.setSelected(false);
+                }
+                break;
         }
     }
 
@@ -343,19 +395,26 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                 AvisClient avisClient = this.avisClients.get(row + (this.maxRows * this.curPageNo));
 
                 // Check if filename has been defined
-                if (avisClient.getPdfFile() != null) {
+                if (avisClient.getSmurfOutput() != null) {
 
-                    // PDF file object
-                    File pdfFile = new File(avisClient.getPdfFile());
+                    // Output file object
+                    File outputFile;
+
+                    // Check the output format to determine if we need to display the base or secondary output file
+                    if (avisClient.getSmurfOutput().getBaseOutputFormat().equals("PDF")) {
+                        outputFile = new File(avisClient.getSmurfOutput().getBaseFilename());
+                    } else {
+                        outputFile = new File(avisClient.getSmurfOutput().getSecondaryFilename());
+                    }
 
                     // Check if the PDF file exists
-                    if (pdfFile.exists() && pdfFile.isFile()) {
+                    if (outputFile.exists() && outputFile.isFile()) {
 
                         // Check if we have a PDF viewer for the current PDF file
-                        if (this.pdfViewers.containsKey(pdfFile.getName())) {
+                        if (this.pdfViewers.containsKey(outputFile.getName())) {
 
                             // Get the instance of the required viewer
-                            PDFViewer pdfViewer = this.pdfViewers.get(pdfFile.getName());
+                            PDFViewer pdfViewer = this.pdfViewers.get(outputFile.getName());
 
                             // Bring the already opened PDF viewer to front
                             pdfViewer.setVisible(true);
@@ -367,13 +426,13 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                             PDFViewer pdfViewer = new PDFViewer();
 
                             // Set PDF viewer properties
-                            pdfViewer.setTitle(pdfFile.getName());
+                            pdfViewer.setTitle(outputFile.getName());
 
                             // Open the request for payment PDF document
-                            pdfViewer.pdfViewerController.openDocument(pdfFile.getAbsolutePath());
+                            pdfViewer.pdfViewerController.openDocument(outputFile.getAbsolutePath());
 
                             // Add the PDF viewer to the map of viewers
-                            this.pdfViewers.put(pdfFile.getName(), pdfViewer);
+                            this.pdfViewers.put(outputFile.getName(), pdfViewer);
 
                             // Show the PDF viewer
                             pdfViewer.setVisible(true);
@@ -388,7 +447,7 @@ public class RubisController extends WindowAdapter implements ActionListener, It
 
                         // Write error message to log file
                         Smurf.logController.log(Level.WARNING, PDFViewer.class.getSimpleName(),
-                                "The file " + pdfFile.getAbsolutePath() + " could not be read.");
+                                "The file " + outputFile.getAbsolutePath() + " could not be read.");
                     }
                 }
             }
@@ -497,19 +556,23 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                 }
 
                 // Set the column alignment
-                if (gridConfiguration.getAlignment().toLowerCase().equals("center")) {
+                switch (gridConfiguration.getAlignment().toLowerCase()) {
 
-                    // Cell renderer for table column cell
-                    DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
-                    centerRenderer.setHorizontalAlignment(JLabel.CENTER);
-                    tableColumn.setCellRenderer(centerRenderer);
+                    case "center":
 
-                } else if (gridConfiguration.getAlignment().toLowerCase().equals("right")) {
+                        // Cell renderer for table column cell
+                        DefaultTableCellRenderer centerRenderer = new DefaultTableCellRenderer();
+                        centerRenderer.setHorizontalAlignment(JLabel.CENTER);
+                        tableColumn.setCellRenderer(centerRenderer);
+                        break;
 
-                    // Cell renderer for table column cell
-                    DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
-                    rightRenderer.setHorizontalAlignment(JLabel.RIGHT);
-                    tableColumn.setCellRenderer(rightRenderer);
+                    case "right":
+
+                        // Cell renderer for table column cell
+                        DefaultTableCellRenderer rightRenderer = new DefaultTableCellRenderer();
+                        rightRenderer.setHorizontalAlignment(JLabel.RIGHT);
+                        tableColumn.setCellRenderer(rightRenderer);
+                        break;
                 }
             }
         }
@@ -623,8 +686,7 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         MainWindowController.getMainWindowController().showDialogMessage(
                                 "Une erreur est survenue lors de la récupération des\ndemandes de"
                                 + " règlement.\n\nVeuillez vérifier les paramètres de connexion à la\nbase"
-                                + " de données avant de relancer la récupération.",
-                                JOptionPane.ERROR_MESSAGE);
+                                + " de données avant de relancer la récupération.", JOptionPane.ERROR_MESSAGE);
 
                         // Write error message to log file
                         Smurf.logController.log(Level.SEVERE, AvisClientDao.class.getSimpleName(),
@@ -635,8 +697,7 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         MainWindowController.getMainWindowController().showDialogMessage(
                                 "Une erreur est survenue lors de la récupération des\ndemandes de"
                                 + " règlement.\n\nVeuillez vérifier les paramètres de connexion à la\nbase"
-                                + " de données avant de relancer la récupération.",
-                                JOptionPane.ERROR_MESSAGE);
+                                + " de données avant de relancer la récupération.", JOptionPane.ERROR_MESSAGE);
 
                         // Write error message to log file
                         Smurf.logController.log(Level.SEVERE, AvisClientDao.class.getSimpleName(),
@@ -648,8 +709,7 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         MainWindowController.getMainWindowController().showDialogMessage(
                                 "Une erreur est survenue lors de la lecture du fichier\nde configuration de "
                                 + "l'application. Veuillez vérifier\nque le fichier est à l'emplacement requi avant "
-                                + "de\nrelancer l'application.",
-                                JOptionPane.WARNING_MESSAGE);
+                                + "de\nrelancer l'application.", JOptionPane.WARNING_MESSAGE);
 
                         // Write error message to log file
                         Smurf.logController.log(Level.SEVERE, ConfigurationDao.class.getSimpleName(),
@@ -671,8 +731,7 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         MainWindowController.getMainWindowController().showDialogMessage(
                                 "La date de début des demandes de règlement n'a\npas été spécifiée.\n\n"
                                 + "Veuillez renseigner la date de début des demandes\nde règlement avant de relancer "
-                                + "la récupération.",
-                                JOptionPane.ERROR_MESSAGE);
+                                + "la récupération.", JOptionPane.ERROR_MESSAGE);
 
                         // Write error message to log file
                         Smurf.logController.log(Level.WARNING, AvisClientDao.class.getSimpleName(),
@@ -683,8 +742,7 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         MainWindowController.getMainWindowController().showDialogMessage(
                                 "La date de fin des demandes de règlement n'a\npas été spécifiée.\n\n"
                                 + "Veuillez renseigner la date de fin des demandes\nde règlement avant de relancer "
-                                + "la récupération.",
-                                JOptionPane.ERROR_MESSAGE);
+                                + "la récupération.", JOptionPane.ERROR_MESSAGE);
 
                         // Write error message to log file
                         Smurf.logController.log(Level.WARNING, AvisClientDao.class.getSimpleName(),
@@ -695,8 +753,7 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         MainWindowController.getMainWindowController().showDialogMessage(
                                 "Les date de début et de fin des demandes de règlement n'ont\npas été "
                                 + "spécifiées.\n\nVeuillez renseigner les dates de début et de fin des demandes\n"
-                                + "de règlement avant de relancer la récupération.",
-                                JOptionPane.ERROR_MESSAGE);
+                                + "de règlement avant de relancer la récupération.", JOptionPane.ERROR_MESSAGE);
 
                         // Write error message to log file
                         Smurf.logController.log(Level.WARNING, AvisClientDao.class.getSimpleName(),
@@ -771,7 +828,7 @@ public class RubisController extends WindowAdapter implements ActionListener, It
      */
     private ArrayList<AvisClient>getListSubset(int startupIndex, int length) {
 
-        ArrayList<AvisClient> subAvisClients = new ArrayList<AvisClient>();
+        ArrayList<AvisClient> subAvisClients = new ArrayList<>();
 
         // Check if the start up index for the subset is valid
         if ((startupIndex > -1) && (startupIndex < this.avisClients.size())) {
@@ -884,6 +941,56 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                     // Create instance of document printer class
                     SEPAMailDocumentPrinter printer = new SEPAMailDocumentPrinter();
 
+                    // Configuration settings
+                    ArrayList<Configuration> confs = ConfigurationDao.getConfigurationDao().getConfigurations();
+
+                    // Get request for payment output format which defaults to PDF
+                    String outputFormat;
+                    int outputFormatIndex = confs.indexOf(new Configuration("output.format"));
+                    if (outputFormatIndex > -1) {
+                        outputFormat = confs.get(outputFormatIndex).getStringVal();
+                    } else {
+                        outputFormat = "PDF";
+                    }
+
+                    // Get output folder
+                    String outputFolder;
+                    int outputFolderIndex = confs.indexOf(new Configuration("folder.output"));
+                    if (outputFolderIndex > -1) {
+                        outputFolder = confs.get(outputFolderIndex).getStringVal();
+                    } else {
+                        outputFolder = "./output";
+                    }
+
+                    // Create output foler if it does not exist
+                    Utilities.createFolderIfNotExist(Utilities.getCurrentWorkingDirectory() +
+                            System.getProperty("file.separator") + outputFolder);
+
+                    // Get temporary files folder
+                    String tempFolder;
+                    int temporaryFolderIndex = confs.indexOf(new Configuration("folder.temp"));
+                    if (temporaryFolderIndex > -1) {
+                        tempFolder = confs.get(temporaryFolderIndex).getStringVal();
+                    } else {
+                        tempFolder = "./temp";
+                    }
+
+                    // Create temporary folder if it does not exist
+                    Utilities.createFolderIfNotExist(Utilities.getCurrentWorkingDirectory() +
+                            System.getProperty("file.separator") + tempFolder);
+
+                    // Get SMIC module configuration file
+                    String smicConfFile;
+                    int smicConfFileIndex = confs.indexOf(new Configuration("smic.conf"));
+                    if (smicConfFileIndex > -1) {
+                        smicConfFile = Utilities.getCurrentWorkingDirectory() + System.getProperty("file.separator") +
+                                confs.get(smicConfFileIndex).getStringVal();
+                    } else {
+
+                        // Throw exception since SMIC module configuration filename has not been defined
+                        throw new SmicConfigurationFilenameNotDefinedException();
+                    }
+
                     // Scan the list of requests for payment
                     for (int i = 0; i < avisClients.size(); i++) {
 
@@ -896,8 +1003,15 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                             // Check if a document must be generated for the current request for payment
                             if (avisClient.getGenerateDocument()) {
 
-                                // Generate the required PDF file and set related PDF file property
-                                avisClient.setPdfFile(printer.generateRequestForPaymentDocument(avisClient));
+                                // Generate the required request for payment document
+                                String rfpDocumentFilename = printer.generateRequestForPaymentDocument(avisClient);
+
+                                // SMURF output class
+                                SmurfOutput smurfOutput = new SmurfOutput(rfpDocumentFilename, outputFormat,
+                                        outputFolder, tempFolder, smicConfFile);
+
+                                // Generate the required request for payment document output class
+                                avisClient.setSmurfOutput(smurfOutput);
 
                                 // Increment the count for number of documents generated
                                 generatedDocumentCount++;
@@ -1003,7 +1117,8 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                             Smurf.logController.log(Level.WARNING, RubisController.class.getSimpleName(),
                                     ex.getLocalizedMessage());
 
-                        } else if (ex.getMessage().startsWith("smurf.exceptions.RequestForPaymentTemplateNotFoundException")) {
+                        } else if (ex.getMessage().startsWith("smurf.exceptions."
+                                + "RequestForPaymentTemplateNotFoundException")) {
 
                             MainWindowController.getMainWindowController().showDialogMessage(
                                     "Le gabarit pour le document des demandes de règlement est introuvable.",
@@ -1013,7 +1128,8 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                             Smurf.logController.log(Level.WARNING, RubisController.class.getSimpleName(),
                                     ex.getLocalizedMessage());
 
-                        } else if (ex.getMessage().startsWith("smurf.exceptions.RequestForPaymentTemplateNotDefinedException")) {
+                        } else if (ex.getMessage().startsWith("smurf.exceptions."
+                                + "RequestForPaymentTemplateNotDefinedException")) {
 
                             MainWindowController.getMainWindowController().showDialogMessage(
                                     "Le gabarit pour le document des demandes de règlement n'a pas été défini.",
@@ -1046,8 +1162,8 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         } else if (ex.getMessage().startsWith("java.io.IOException")) {
 
                             MainWindowController.getMainWindowController().showDialogMessage(
-                                    "Une erreur est survenue lors de la génération du document de demande de règlement.",
-                                    JOptionPane.ERROR_MESSAGE);
+                                    "Une erreur est survenue lors de la génération du document de demande de"
+                                    + " règlement.", JOptionPane.ERROR_MESSAGE);
 
                             // Write error message to log file
                             Smurf.logController.log(Level.WARNING, SEPAMailDocumentPrinter.class.getSimpleName(),
@@ -1056,8 +1172,8 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         } else if (ex.getMessage().startsWith("java.io.FileNotFoundException")) {
 
                             MainWindowController.getMainWindowController().showDialogMessage(
-                                    "Une erreur est survenue lors de la génération du document de demande de règlement.",
-                                    JOptionPane.ERROR_MESSAGE);
+                                    "Une erreur est survenue lors de la génération du document de demande de"
+                                    + " règlement.", JOptionPane.ERROR_MESSAGE);
 
                             // Write error message to log file
                             Smurf.logController.log(Level.WARNING, SEPAMailDocumentPrinter.class.getSimpleName(),
@@ -1066,8 +1182,8 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         } else if (ex.getMessage().startsWith("com.itextpdf.text.DocumentException")) {
 
                             MainWindowController.getMainWindowController().showDialogMessage(
-                                    "Une erreur est survenue lors de la génération du document de demande de règlement.",
-                                    JOptionPane.ERROR_MESSAGE);
+                                    "Une erreur est survenue lors de la génération du document de demande de"
+                                    + " règlement.", JOptionPane.ERROR_MESSAGE);
 
                             // Write error message to log file
                             Smurf.logController.log(Level.WARNING, SEPAMailDocumentPrinter.class.getSimpleName(),
@@ -1076,11 +1192,21 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         } else if (ex.getMessage().startsWith("java.awt.print.PrinterException")) {
 
                             MainWindowController.getMainWindowController().showDialogMessage(
-                                    "Une erreur est survenue lors de la génération du document de demande de règlement.",
-                                    JOptionPane.ERROR_MESSAGE);
+                                    "Une erreur est survenue lors de la génération du document de demande de"
+                                    + " règlement.", JOptionPane.ERROR_MESSAGE);
 
                             // Write error message to log file
                             Smurf.logController.log(Level.WARNING, SEPAMailDocumentPrinter.class.getSimpleName(),
+                                    ex.getLocalizedMessage());
+
+                        } else if (ex.getMessage().startsWith("org.smic.exceptions")) {
+
+                            MainWindowController.getMainWindowController().showDialogMessage(
+                                    "Une erreur est survenue lors de l'utilisation du composant SMIC.",
+                                    JOptionPane.ERROR_MESSAGE);
+
+                            // Write error message to log file
+                            Smurf.logController.log(Level.SEVERE, RubisController.class.getSimpleName(),
                                     ex.getLocalizedMessage());
 
                         } else {
@@ -1141,7 +1267,7 @@ public class RubisController extends WindowAdapter implements ActionListener, It
             AvisClient avisClient = this.avisClients.get(i);
 
             if (avisClient.getGenerateDocument()) {
-                if (avisClient.getPdfFile() != null) {
+                if (avisClient.getSmurfOutput() != null) {
                     this.noDocumentsToSend++;
                 }
             }
@@ -1164,42 +1290,294 @@ public class RubisController extends WindowAdapter implements ActionListener, It
 
                     int noSentDocuments = 0;
 
-                    // Create instance of document mailer
-                    SEPAMailDocumentMailer mailer = new SEPAMailDocumentMailer();
+                    // Configuration settings
+                    ArrayList<Configuration> confs = ConfigurationDao.getConfigurationDao().getConfigurations();
 
-                    // Loop the requests for payment documents and email those documents
-                    for (int i = 0; i < avisClients.size(); i++) {
+                    // Get document output type which defaults to SEND_SMTP
+                    String outputType;
+                    int outputTypeIndex = confs.indexOf(new Configuration("output.type"));
+                    if (outputTypeIndex > -1) {
+                        outputType = confs.get(outputTypeIndex).getStringVal();
+                    } else {
+                        outputType = "SEND_SMTP";
+                    }
 
-                        // Check if the user has cancelled the thread
-                        if (!isCancelled()) {
+                    // Get document container which defaults to UNIT
+                    String outputContainer;
+                    int outputContainerIndex = confs.indexOf(new Configuration("output.container"));
+                    if (outputContainerIndex > -1) {
+                        outputContainer = confs.get(outputContainerIndex).getStringVal();
+                    } else {
+                        outputContainer = "UNIT";
+                    }
 
-                            // Current request for payment
-                            AvisClient avisClient = avisClients.get(i);
+                    // List of request for payment objects that will be processed
+                    ArrayList<AvisClient> avisClientsForProcessing = new ArrayList<>();
 
-                            // Check if we need to send the document for the current request for payment
-                            if (avisClient.getGenerateDocument()) {
+                    // Scan the list of request for payment documents and build the list of objects to process
+                    for (Iterator<AvisClient> it = avisClients.iterator(); it.hasNext();) {
 
-                                // Check if the PDF file can be read
-                                if (avisClient.getPdfFile() != null) {
+                        // Current request for payment
+                        AvisClient avisClient = it.next();
 
-                                    // Send document for the current request for payment
-                                    mailer.sendDocumentForRequest(avisClient);
+                        // Check if the current request for payment has to be processed
+                        if (avisClient.getGenerateDocument()) {
 
-                                    // Increase the number of documents processed
-                                    noSentDocuments++;
+                            // Check if we have a SMURF output object for the current request for payment object
+                            if (null != avisClient.getSmurfOutput()) {
 
-                                    // Update the UI to reflect the percentage work completed
-                                    publish(noSentDocuments);
-                                }
+                                // Add the current object to the list of objects that will be processed
+                                avisClientsForProcessing.add(avisClient);
                             }
-
-                        } else {
-                            break;
                         }
                     }
 
-                    // Generate the sent documents log
-                    mailer.createMailLog();
+                    // Voucher printer instance
+                    SEPAMailVoucherPrinter smVoucherPrinter = new SEPAMailVoucherPrinter();
+
+                    // Send documents as per defined output type
+                    switch (outputType) {
+
+                        case "SEND_SMTP": {
+
+                            // Check if we need to send documents as batch
+                            if (outputContainer.equals("BATCH")) {
+
+                                // Create voucher for sent documents
+                                String voucherFilename = smVoucherPrinter.generateVoucher(avisClientsForProcessing);
+
+                                // SEPAMail document archiver instance
+                                SEPAMailDocumentArchiver archiver = new SEPAMailDocumentArchiver();
+
+                                // Create archive for the list of request for payment documents
+                                String archiveFilename = archiver.createArchive(avisClientsForProcessing,
+                                        voucherFilename);
+
+                                try {
+
+                                    // Document mailer instance
+                                    SEPAMailDocumentMailer mailer = new SEPAMailDocumentMailer();
+
+                                    // Send archive file via SMTP
+                                    mailer.send(archiveFilename);
+
+                                } catch (IOException | MailParameterNotDefinedException | ConfigurationFormatException |
+                                        MessagingException ex) {
+
+                                    // Delete the generated voucher since archive could not be sent
+                                    new File(voucherFilename).delete();
+
+                                    // Throw exception that was raised
+                                    throw ex;
+                                }
+
+                                // Display number of sent documents
+                                publish(avisClientsForProcessing.size());
+
+                                // Number of documents sent
+                                noSentDocuments = avisClientsForProcessing.size();
+
+                            } else {
+
+                                // Document output format
+                                String format = avisClientsForProcessing.get(0).getSmurfOutput().getBaseOutputFormat();
+
+                                // Check document format
+                                if (format.equals("PDF")) {
+
+                                    // List of processed request for payment objects
+                                    ArrayList<AvisClient> processedObjects = new ArrayList<>();
+
+                                    // Document mailer instance
+                                    SEPAMailDocumentMailer mailer = new SEPAMailDocumentMailer();
+
+                                    // Scan the list of request for payment objects that needs to be processed
+                                    for (AvisClient avisClient : avisClientsForProcessing) {
+
+                                        // Check if user has cancelled the thread
+                                        if (!isCancelled()) {
+
+                                            // Send document for the current request for payment
+                                            mailer.send(avisClient.getSmurfOutput().getBaseFilename());
+
+                                            // Increase the number of documents processed
+                                            noSentDocuments++;
+
+                                            // Update the UI to reflect the percentage work completed
+                                            publish(noSentDocuments);
+
+                                            // Update the list of processed objects
+                                            processedObjects.add(avisClient);
+
+                                        } else {
+                                            break;
+                                        }
+                                    }
+                                    
+                                    // Create voucher for sent documents
+                                    smVoucherPrinter.generateVoucher(processedObjects);
+
+                                } else {
+
+                                    // Get SMOC module configuration filename
+                                    String smocConfig = "";
+                                    int smocConfigIndex = confs.indexOf(new Configuration("smoc.conf"));
+                                    if (smocConfigIndex > -1) {
+                                        smocConfig = confs.get(smocConfigIndex).getStringVal();
+                                    }
+
+                                    // List of processed request for payment objects
+                                    ArrayList<AvisClient> processedObjects = new ArrayList<>();
+
+                                    // SMOC module instance
+                                    Smoc smoc = new Smoc(smocConfig);
+
+                                    // Scan the list of request for payment objects that needs to be processed
+                                    for (AvisClient avisClient : avisClientsForProcessing) {
+
+                                        // Check if user has cancelled the thread
+                                        if (!isCancelled()) {
+
+                                            // Send document for the current request for payment via SMOC module
+                                            smoc.sendMissive("Avis de paiement SEPAmail",
+                                                    avisClient.getSmurfOutput().getBaseFilename());
+
+                                            // Increase the number of documents processed
+                                            noSentDocuments++;
+
+                                            // Update the UI to reflect the percentage work completed
+                                            publish(noSentDocuments);
+
+                                            // Update the list of processed objects
+                                            processedObjects.add(avisClient);
+
+                                        } else {
+                                            break;
+                                        }
+                                    }
+
+                                    // Create voucher for sent documents
+                                    smVoucherPrinter.generateVoucher(processedObjects);
+                                }
+                            }
+
+                            break;
+                        }
+
+                        case "SEND_FILESYSTEM": {
+
+                            // Create voucher for sent documents
+                            String voucherFilename = smVoucherPrinter.generateVoucher(avisClientsForProcessing);
+
+                            // Create archive if container is set to BATCH
+                            if (outputContainer.equals("BATCH")) {
+
+                                // SEPAMail document archiver instance
+                                SEPAMailDocumentArchiver archiver = new SEPAMailDocumentArchiver();
+
+                                // Create archive for the list of request for payment documents
+                                archiver.createArchive(avisClientsForProcessing, voucherFilename);
+                            }
+
+                            // Display number of sent documents
+                            publish(avisClientsForProcessing.size());
+
+                            // Number of documents sent
+                            noSentDocuments = avisClientsForProcessing.size();
+
+                            break;
+                        }
+
+                        case "SEND_EBICS": {
+
+                            // eBICS adapter instance
+                            SEPAMailEbicsAdapter ebicsAdapter = new SEPAMailEbicsAdapter();
+
+                            // Check if we need to send individual files or files archive
+                            if (outputContainer.equals("BATCH")) {
+
+                                // Create voucher for sent documents
+                                String voucherFilename = smVoucherPrinter.generateVoucher(avisClientsForProcessing);
+
+                                // SEPAMail document archiver instance
+                                SEPAMailDocumentArchiver archiver = new SEPAMailDocumentArchiver();
+
+                                // Create archive for the list of request for payment documents
+                                String archiveFilename = archiver.createArchive(avisClientsForProcessing,
+                                        voucherFilename);
+
+                                try {
+
+                                    // Start the eBICS session
+                                    ebicsAdapter.startEbicsSession();
+
+                                    // Send archive file via eBICS
+                                    ebicsAdapter.send(archiveFilename);
+
+                                } catch (GeneralSecurityException | IOException ex) {
+
+                                    // Delete the generated voucher since archive could not be sent
+                                    new File(voucherFilename).delete();
+
+                                    // Throw exception that was raised
+                                    throw ex;
+
+                                } catch (Exception ex) {
+
+                                    // Delete the generated voucher since archive could not be sent
+                                    new File(voucherFilename).delete();
+
+                                    // Throw exception that was raised
+                                    throw ex;
+                                }
+
+                                // Display number of sent documents
+                                publish(avisClientsForProcessing.size());
+
+                                // Number of documents sent
+                                noSentDocuments = avisClientsForProcessing.size();
+
+                            } else {
+
+                                // Start the eBICS session
+                                ebicsAdapter.startEbicsSession();
+
+                                // List of processed request for payment objects
+                                ArrayList<AvisClient> processedObjects = new ArrayList<>();
+
+                                // Scan the list of request for payment objects that needs to be processed
+                                for (AvisClient avisClient : avisClientsForProcessing) {
+
+                                    // Check if user has cancelled the thread
+                                    if (!isCancelled()) {
+
+                                        // Send document for the current request for payment
+                                        ebicsAdapter.send(avisClient.getSmurfOutput().getBaseFilename());
+
+                                        // Increase the number of documents processed
+                                        noSentDocuments++;
+
+                                        // Update the UI to reflect the percentage work completed
+                                        publish(noSentDocuments);
+
+                                        // Update the list of processed objects
+                                        processedObjects.add(avisClient);
+
+                                    } else {
+                                        break;
+                                    }
+                                }
+
+                                // Create voucher for sent documents
+                                smVoucherPrinter.generateVoucher(processedObjects);
+                            }
+
+                            break;
+                        }
+
+                        default:
+                            break;
+                    }
                     
                     return noSentDocuments;
                 }
@@ -1214,7 +1592,6 @@ public class RubisController extends WindowAdapter implements ActionListener, It
 
                     // Update the task progress indicator
                     taskProgressDialog.taskProgressBar.setValue(noSentDocuments.get(0));
-
                 }
 
                 /**
@@ -1255,6 +1632,13 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                                  MainWindowController.getMainWindowController().setStatusBarMessage(noDocumentsSent
                                         + " documents de demande de règlement ont été envoyés.");
                             }
+
+                        } else {
+
+                            // Display error message since documents could not be sent
+                            MainWindowController.getMainWindowController().showDialogMessage(
+                                    "Une erreur est survenue lors de l'envoi des documents de demande de règlement.",
+                                    JOptionPane.ERROR_MESSAGE);
                         }
 
                     } catch (CancellationException ex) {
@@ -1274,8 +1658,8 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         if (ex.getMessage().startsWith("smurf.exceptions.LogTemplateNotDefinedException")) {
 
                             MainWindowController.getMainWindowController().showDialogMessage(
-                                    "Le gabarit du fichier de journalisation des envois de document n'a pas été défini.",
-                                    JOptionPane.ERROR_MESSAGE);
+                                    "Le gabarit du fichier de journalisation des envois de document n'a pas été"
+                                    + " défini.", JOptionPane.ERROR_MESSAGE);
 
                             // Write error message to log file
                             Smurf.logController.log(Level.WARNING, RubisController.class.getSimpleName(),
@@ -1294,7 +1678,8 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                         } else if (ex.getMessage().startsWith("smurf.exceptions.MailParameterNotDefinedException")) {
 
                             MainWindowController.getMainWindowController().showDialogMessage(
-                                    "Un ou plusieurs paramètres requis pour l'envoi des documents n'ont pas été renseignés.",
+                                    "Un ou plusieurs paramètres requis pour l'envoi des documents n'ont pas été"
+                                    + " renseignés.",
                                     JOptionPane.ERROR_MESSAGE);
 
                             // Write error message to log file
@@ -1355,6 +1740,16 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                             Smurf.logController.log(Level.WARNING, SEPAMailDocumentMailer.class.getSimpleName(),
                                     ex.getLocalizedMessage());
 
+                        } else if (ex.getMessage().startsWith("org.smoc.exceptions")) {
+
+                            MainWindowController.getMainWindowController().showDialogMessage(
+                                    "Une erreur est survenue lors de l'utilisation du composant SMOC.",
+                                    JOptionPane.ERROR_MESSAGE);
+
+                            // Write error message to log file
+                            Smurf.logController.log(Level.SEVERE, RubisController.class.getSimpleName(),
+                                    ex.getLocalizedMessage());
+
                         } else {
 
                             // Log any exceptions that have not been catered for
@@ -1386,6 +1781,6 @@ public class RubisController extends WindowAdapter implements ActionListener, It
                     + " règlement\npour laquelle le document requi sera envoyé.", JOptionPane.WARNING_MESSAGE);
         }
     }
-    
+
     // </editor-fold>
 }

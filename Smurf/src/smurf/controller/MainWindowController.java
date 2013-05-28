@@ -6,7 +6,15 @@ import java.awt.event.ComponentEvent;
 import java.awt.event.ComponentListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.logging.Level;
 import javax.swing.JOptionPane;
+import smurf.Smurf;
+import smurf.dao.ConfigurationDao;
+import smurf.exceptions.ConfigurationFormatException;
+import smurf.model.Configuration;
+import smurf.utilities.Utilities;
 import smurf.view.SmurfMainJFrame;
 
 /**
@@ -111,11 +119,25 @@ public class MainWindowController extends WindowAdapter implements ComponentList
         cl.show(view.panelsContainer, panelName);
 
         // UI specific actions
-        if (panelName.equals(MainWindowController.CONFIGPANEL)) {
-            configController.createParamsUi();
-        } else if (panelName.equals(MainWindowController.RUBISPANEL)) {
-            rubisController.setupUi();
+        switch (panelName) {
+
+            case MainWindowController.CONFIGPANEL:
+                configController.createParamsUi();
+                break;
+
+            case MainWindowController.RUBISPANEL:
+                rubisController.setupUi();
+                break;
         }
+    }
+
+    /**
+     * Clear generated SMURF output objects for request for payment objects
+     */
+    public void clearSmurfOutputObjects() {
+
+        // Clear SMURF output objects
+        this.rubisController.clearSmurfOuputObjects();
     }
 
     /**
@@ -136,7 +158,7 @@ public class MainWindowController extends WindowAdapter implements ComponentList
     public void showDialogMessage(String message, int messageType) {
 
         // Show application dialog box
-        JOptionPane.showMessageDialog(view, message, "SMURF, un composant de la communauté SEPAmail", messageType);
+        JOptionPane.showMessageDialog(view, message, "SMURF", messageType);
     }
 
     /**
@@ -146,7 +168,36 @@ public class MainWindowController extends WindowAdapter implements ComponentList
      */
     @Override
     public void windowClosing(WindowEvent event) {
-        System.exit(0);
+
+        try {
+
+            // Clear the contents of the temporary folder when closing the application
+            ArrayList<Configuration> configurations = ConfigurationDao.getConfigurationDao().getConfigurations();
+
+            // Get temporary folder name index from configurations
+            int temporaryFoldernameIndex = configurations.indexOf(new Configuration("folder.temp"));
+
+            // Check if the configuration setting was found
+            if (temporaryFoldernameIndex > -1) {
+
+                // Temporary folder path and name
+                String tempFoldername = Utilities.getCurrentWorkingDirectory() + System.getProperty("file.separator") +
+                        configurations.get(temporaryFoldernameIndex).getStringVal();
+
+                // Clear folder content
+                Utilities.deleteFolderFiles(tempFoldername);
+            }
+
+        } catch (IOException | ConfigurationFormatException ex) {
+
+            // Log error message
+            Smurf.logController.log(Level.SEVERE, ConfigurationDao.class.getSimpleName(), ex.getLocalizedMessage());
+
+        } finally {
+
+            // Exit
+            System.exit(0);
+        }
     }
     
     /**

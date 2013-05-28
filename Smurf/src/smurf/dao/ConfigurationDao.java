@@ -6,10 +6,10 @@ import java.util.*;
 import java.util.logging.Level;
 import org.apache.commons.lang3.StringUtils;
 import smurf.Smurf;
-import smurf.model.Configuration;
-import smurf.model.GridConfiguration;
 import smurf.exceptions.ConfigurationFormatException;
 import smurf.exceptions.DateParseException;
+import smurf.model.Configuration;
+import smurf.model.GridConfiguration;
 import smurf.utilities.Utilities;
 
 /**
@@ -49,10 +49,10 @@ public class ConfigurationDao {
     private ConfigurationDao() throws IOException {
 
         // Initialise the list of configuration settings
-        configurations = new ArrayList<Configuration>();
+        configurations = new ArrayList<>();
 
         // Initialise the list of data grid configuration settings
-        gridConfigurations = new ArrayList<GridConfiguration>();
+        gridConfigurations = new ArrayList<>();
 
         // Load configuration settings
         readConfiguration();
@@ -116,21 +116,36 @@ public class ConfigurationDao {
                 rubisProperties.put(configuration.getPropertyName() + ".type", configuration.getClassTypeName());
 
                 // Add the configuration settings value to the properties object
-                if (configuration.getClassTypeName().equals("boolean")) {
-                    rubisProperties.put(configuration.getPropertyName() + ".value",
-                            configuration.getBoolVal().toString());
-                } else if (configuration.getClassTypeName().equals("Date")) {
-                    rubisProperties.put(configuration.getPropertyName() + ".value", configuration.getDateStringVal());
-                } else if (configuration.getClassTypeName().equals("double")) {
-                    rubisProperties.put(configuration.getPropertyName() + ".value",
-                            configuration.getDoubleVal().toString());
-                } else if (configuration.getClassTypeName().equals("float")) {
-                    rubisProperties.put(configuration.getPropertyName() + ".value", configuration.getFloatStringVal());
-                } else if (configuration.getClassTypeName().equals("int")) {
-                    rubisProperties.put(configuration.getPropertyName() + ".value",
-                            configuration.getIntVal().toString());
-                } else if (configuration.getClassTypeName().equals("String")) {
-                    rubisProperties.put(configuration.getPropertyName() + ".value", configuration.getStringVal());
+                switch (configuration.getClassTypeName()) {
+
+                    case "boolean":
+                        rubisProperties.put(configuration.getPropertyName() + ".value",
+                                configuration.getBoolVal().toString());
+                        break;
+
+                    case "Date":
+                        rubisProperties.put(configuration.getPropertyName() + ".value",
+                                configuration.getDateStringVal());
+                        break;
+
+                    case "double":
+                        rubisProperties.put(configuration.getPropertyName() + ".value",
+                                configuration.getDoubleVal().toString());
+                        break;
+
+                    case "float":
+                        rubisProperties.put(configuration.getPropertyName() + ".value",
+                                configuration.getFloatStringVal());
+                        break;
+
+                    case "int":
+                        rubisProperties.put(configuration.getPropertyName() + ".value",
+                                configuration.getIntVal().toString());
+                        break;
+
+                    case "String":
+                        rubisProperties.put(configuration.getPropertyName() + ".value", configuration.getStringVal());
+                        break;
                 }
             }
 
@@ -172,9 +187,7 @@ public class ConfigurationDao {
             // Refresh the configuration list
             readConfiguration();
 
-        } catch (IOException ex) {
-            throw ex;
-        } catch (ConfigurationFormatException ex) {
+        } catch (IOException | ConfigurationFormatException ex) {
             throw ex;
         }
     }
@@ -187,10 +200,10 @@ public class ConfigurationDao {
     private void readConfiguration() throws IOException {
 
         // Configuration settings map
-        HashMap<String, HashMap<String, String>> confMap = new HashMap<String, HashMap<String, String>>();
+        HashMap<String, HashMap<String, String>> confMap = new HashMap<>();
 
         // Datagrid configuration settings map
-        HashMap<String, HashMap<String, String>> gridMap = new HashMap<String, HashMap<String, String>>();
+        HashMap<String, HashMap<String, String>> gridMap = new HashMap<>();
 
         // Instance of Properties parser
         Properties rubisProperties = new Properties();
@@ -258,7 +271,7 @@ public class ConfigurationDao {
                     } else {
 
                         // Map for group key and value pairs
-                        HashMap<String, String> keyValuePairsMap = new HashMap<String, String>();
+                        HashMap<String, String> keyValuePairsMap = new HashMap<>();
                         keyValuePairsMap.put(propertyName, rubisProperties.getProperty(key));
 
                         // Create a new map entry for the group key name
@@ -282,7 +295,7 @@ public class ConfigurationDao {
                     } else {
 
                         // Map for group key and value pairs
-                        HashMap<String, String> keyValuePairsMap = new HashMap<String, String>();
+                        HashMap<String, String> keyValuePairsMap = new HashMap<>();
                         keyValuePairsMap.put(propertyName, rubisProperties.getProperty(key));
 
                         // Create a new map entry for the group key name
@@ -315,37 +328,39 @@ public class ConfigurationDao {
                 try {
 
                     // Set the value of the configuration object
-                    if (type.equals("boolean")) {
-                        configuration.setBoolVal(Boolean.parseBoolean(keyValuePairsMap.get("value").toString()));
-                    } else if (type.equals("Date")) {
+                    switch (type) {
+
+                        case "boolean":
+                            configuration.setBoolVal(Boolean.parseBoolean(keyValuePairsMap.get("value").toString()));
+                            break;
+
+                        case "Date":
                             configuration.setDateVal(keyValuePairsMap.get("value").toString());
-                    } else if (type.equals("double")) {
-                        configuration.setDoubleVal(Double.parseDouble(keyValuePairsMap.get("value").toString()));
-                    } else if (type.equals("float")) {
-                        configuration.setFloatVal(keyValuePairsMap.get("value").toString());
-                    } else if (type.equals("int")) {
-                        configuration.setIntVal(Integer.parseInt(keyValuePairsMap.get("value").toString()));
-                    } else if (type.equals("String")) {
-                        configuration.setStringVal(keyValuePairsMap.get("value").toString());
+                            break;
+
+                        case "double":
+                            configuration.setDoubleVal(Double.parseDouble(keyValuePairsMap.get("value").toString()));
+                            break;
+
+                        case "float":
+                            configuration.setFloatVal(keyValuePairsMap.get("value").toString());
+                            break;
+
+                        case "int":
+                            configuration.setIntVal(Integer.parseInt(keyValuePairsMap.get("value").toString()));
+                            break;
+
+                        case "String":
+                            configuration.setStringVal(keyValuePairsMap.get("value").toString());
+                            break;
                     }
 
-                } catch (ConfigurationFormatException ex) {
+                } catch (ConfigurationFormatException | DateParseException | ParseException ex) {
 
                     // Log messages for exception raised
                     Smurf.logController.log(Level.WARNING, ConfigurationDao.class.getSimpleName(),
                             ex.getLocalizedMessage());
 
-                } catch (DateParseException ex) {
-
-                    // Log messages for exception raised
-                    Smurf.logController.log(Level.WARNING, ConfigurationDao.class.getSimpleName(),
-                            ex.getLocalizedMessage());
-
-                } catch (ParseException ex) {
-                    
-                    // Log messages for exception raised
-                    Smurf.logController.log(Level.WARNING, ConfigurationDao.class.getSimpleName(),
-                            ex.getLocalizedMessage());
                 }
 
                 // Add the configuration to the list of configuration settings
@@ -409,25 +424,21 @@ public class ConfigurationDao {
         String line;
 
         // List of lines that make up the configuration file
-        ArrayList<String> lines = new ArrayList<String>();
+        ArrayList<String> lines = new ArrayList<>();
 
         // File input stream
         FileInputStream fstream = new FileInputStream(Utilities.getCurrentWorkingDirectory() +
                 System.getProperty("file.separator") + Smurf.CONFIG_FILE_NAME);
-            
-        // Data input stream instance
-        DataInputStream in = new DataInputStream(fstream);
 
-        // Buffered reader
-        BufferedReader br = new BufferedReader(new InputStreamReader(in));
+        // Get configuration file contents as an array of lines
+        try (DataInputStream in = new DataInputStream(fstream)) {
+            BufferedReader br = new BufferedReader(new InputStreamReader(in));
 
-        // Read the configuration file line by line and add each line to the array list of configuration file lines
-        while ((line = br.readLine()) != null) {
-            lines.add(line);
+            // Read the configuration file line by line and add each line to the array list of configuration file lines
+            while ((line = br.readLine()) != null) {
+                lines.add(line);
+            }
         }
-
-        // Close the input stream
-        in.close();
         
         return lines;
     }
@@ -465,20 +476,18 @@ public class ConfigurationDao {
         FileWriter fw = new FileWriter(Utilities.getCurrentWorkingDirectory() + 
                 System.getProperty("file.separator") + Smurf.CONFIG_FILE_NAME);
 
-        // Buffered writer
-        BufferedWriter bw = new BufferedWriter(fw);
+        // Write configuration file content line by line
+        try (BufferedWriter bw = new BufferedWriter(fw)) {
 
-        // Write file contents to the file
-        for (int i = 0; i < lines.size(); i++) {
+            // Scan the list of lines
+            for (int i = 0; i < lines.size(); i++) {
 
-            // Add line content
-            bw.write(lines.get(i));
+                // Add line content
+                bw.write(lines.get(i));
 
-            // Add line separator
-            bw.write(System.getProperty("line.separator"));
+                // Add line separator
+                bw.write(System.getProperty("line.separator"));
+            }
         }
-
-        // Close the file stream
-        bw.close();
     }
 }

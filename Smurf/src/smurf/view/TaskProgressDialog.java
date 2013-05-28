@@ -35,9 +35,9 @@ public class TaskProgressDialog extends javax.swing.JDialog {
         taskActionPanel = new javax.swing.JPanel();
         taskCancelButton = new javax.swing.JButton();
 
-        setTitle("SEPAmail SMURF");
+        setTitle("SMURF");
         setModalityType(java.awt.Dialog.ModalityType.APPLICATION_MODAL);
-        setName("TaskProgressDialog");
+        setName("TaskProgressDialog"); // NOI18N
         setResizable(false);
 
         contentPanel.setBorder(javax.swing.BorderFactory.createEmptyBorder(10, 10, 10, 10));
@@ -59,7 +59,7 @@ public class TaskProgressDialog extends javax.swing.JDialog {
                 .add(taskProgressBar, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE, org.jdesktop.layout.GroupLayout.DEFAULT_SIZE, org.jdesktop.layout.GroupLayout.PREFERRED_SIZE)
                 .addPreferredGap(org.jdesktop.layout.LayoutStyle.RELATED)
                 .add(taskDescriptionLabel)
-                .addContainerGap(30, Short.MAX_VALUE))
+                .addContainerGap(24, Short.MAX_VALUE))
         );
 
         contentPanel.add(taskDescriptionPanel, java.awt.BorderLayout.CENTER);
@@ -71,7 +71,6 @@ public class TaskProgressDialog extends javax.swing.JDialog {
 
         taskCancelButton.setActionCommand("CANCEL_FETCHING");
         taskCancelButton.setHorizontalTextPosition(javax.swing.SwingConstants.CENTER);
-        taskCancelButton.setMargin(new java.awt.Insets(0, 0, 0, 0));
         taskActionPanel.add(taskCancelButton, new java.awt.GridBagConstraints());
 
         contentPanel.add(taskActionPanel, java.awt.BorderLayout.SOUTH);
